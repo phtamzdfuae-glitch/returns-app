@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Returns Receiving Station</title>
+<meta name="theme-color" content="#0A1628" />
+<link rel="manifest" href="#" />
+
+<!-- Google Identity & Drive API -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+  :root {
+    --bg: #0A1628;
+    --surface: #111E34;
+    --surface2: #172440;
+    --border: #1E2F4A;
+    --border2: #243558;
+    --accent: #2563EB;
+    --accent-light: #3B82F6;
+    --accent-glow: rgba(37,99,235,0.15);
+    --green: #10B981;
+    --green-bg: rgba(16,185,129,0.1);
+    --red: #EF4444;
+    --red-bg: rgba(239,68,68,0.08);
+    --amber: #F59E0B;
+    --amber-bg: rgba(245,158,11,0.1);
+    --text: #E8EDF5;
+    --text2: #8FA3C0;
+    --text3: #4A6080;
+    --mono: 'Courier New', monospace;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+  /* ── Layout ── */
+  .app { display: flex; flex-direction: column; min-height: 100vh; max-width: 960px; margin: 0 auto; padding: 0 16px 32px; }
+
+  /* ── Header ── */
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .logo { width: 36px; height: 36px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .logo svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .app-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .app-sub  { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .clock { font-family: var(--mono); font-size: 13px; color: var(--text2); letter-spacing: 0.5px; }
+  #authBtn { padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface); color: var(--text2); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all .2s; }
+  #authBtn:hover { border-color: var(--accent); color: var(--accent-light); }
+  #authBtn.signed-in { border-color: var(--green); color: var(--green); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ── Config Banner ── */
+  #configBanner { background: var(--amber-bg); border: 1px solid rgba(245,158,11,0.25); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; }
+  #configBanner.hidden { display: none; }
+  .banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .banner-text { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .banner-text strong { color: var(--amber); }
+  .config-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .config-fields input { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 10px; color: var(--text); font-size: 12px; font-family: var(--mono); width: 100%; }
+  .config-fields input:focus { outline: none; border-color: var(--accent); }
+  .config-fields input::placeholder { color: var(--text3); }
+  .save-config-btn { margin-top: 8px; padding: 7px 16px; background: var(--amber); color: #000; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  /* ── Scan Zone ── */
+  .scan-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; transition: border-color .3s; }
+  .scan-card.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .scan-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .scan-row { display: flex; gap: 8px; align-items: center; }
+  .scan-icon-wrap { width: 44px; height: 44px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .scan-icon-wrap svg { width: 22px; height: 22px; fill: none; stroke: var(--accent-light); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #awbInput { flex: 1; height: 44px; padding: 0 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: var(--mono); font-size: 17px; letter-spacing: 1.5px; font-weight: 600; transition: border-color .2s; }
+  #awbInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  #awbInput::placeholder { font-size: 13px; letter-spacing: 0; font-weight: 400; color: var(--text3); }
+  .scan-btn { height: 44px; padding: 0 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background .2s; }
+  .scan-btn:hover { background: var(--accent-light); }
+  .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .scan-hint { font-size: 11px; color: var(--text3); margin-top: 8px; padding-left: 52px; }
+
+  /* ── Staff selector ── */
+  .staff-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .staff-label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .staff-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); font-size: 12px; cursor: pointer; transition: all .2s; }
+  .staff-btn.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent-light); }
+  #staffNameInput { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 10px; color: var(--text); font-size: 12px; width: 120px; }
+  #staffNameInput:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Result Panel ── */
+  #resultPanel { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  #resultPanel.visible { display: block; }
+  .rp-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .rp-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .rp-badge.found { background: var(--green-bg); color: var(--green); }
+  .rp-badge.notfound { background: var(--red-bg); color: var(--red); }
+  .rp-awb { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 1px; }
+  .rp-time { margin-left: auto; font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .rp-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 600px) { .rp-body { grid-template-columns: 1fr; } .config-fields { grid-template-columns: 1fr; } }
+  .rp-col { padding: 16px; }
+  .rp-col:first-child { border-right: 1px solid var(--border); }
+  @media (max-width: 600px) { .rp-col:first-child { border-right: none; border-bottom: 1px solid var(--border); } }
+  .col-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .pdf-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; }
+  .pdf-icon { font-size: 24px; flex-shrink: 0; }
+  .pdf-name { font-size: 12px; color: var(--text); word-break: break-all; line-height: 1.4; }
+  .pdf-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .print-btn { width: 100%; padding: 9px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .2s; }
+  .print-btn:hover { background: var(--accent-light); }
+  .notfound-msg { font-size: 13px; color: var(--red); background: var(--red-bg); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius-sm); padding: 12px; line-height: 1.5; }
+
+  /* ── Image capture ── */
+  .img-drop { border: 1.5px dashed var(--border2); border-radius: var(--radius-sm); padding: 16px; text-align: center; cursor: pointer; transition: all .2s; }
+  .img-drop:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .img-drop svg { width: 28px; height: 28px; fill: none; stroke: var(--text3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 4px; }
+  .img-drop p { font-size: 12px; color: var(--text3); }
+  .img-drop small { font-size: 11px; color: var(--text3); opacity: 0.7; }
+  .img-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .img-thumb { position: relative; width: 72px; height: 72px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border2); cursor: pointer; }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-ts-badge { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: #fff; font-size: 8px; padding: 2px 4px; text-align: center; line-height: 1.3; }
+  .img-del { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; background: rgba(239,68,68,0.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; color: #fff; line-height: 1; }
+  .upload-progress { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* ── Notes ── */
+  .notes-area { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 10px; color: var(--text); font-size: 13px; resize: vertical; min-height: 56px; margin-top: 8px; }
+  .notes-area:focus { outline: none; border-color: var(--accent); }
+  .save-entry-btn { width: 100%; margin-top: 8px; padding: 9px; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .2s; }
+  .save-entry-btn:hover { background: #0ea272; }
+  .save-entry-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Log table ── */
+  .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .log-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .log-btn { padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface); color: var(--text2); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .2s; }
+  .log-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
+  thead th { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; background: var(--surface2); }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .td-mono { font-family: var(--mono); font-size: 12px; color: var(--text); letter-spacing: 0.5px; }
+  .td-file { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-light); }
+  .td-imgs { display: flex; gap: 4px; align-items: center; }
+  .chip { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .chip-green { background: var(--green-bg); color: var(--green); }
+  .chip-red   { background: var(--red-bg);   color: var(--red); }
+  .chip-gray  { background: var(--surface2); color: var(--text3); }
+  .empty-row td { text-align: center; color: var(--text3); padding: 32px; font-size: 13px; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 10px 18px; font-size: 13px; color: var(--text); opacity: 0; transition: all .3s; pointer-events: none; z-index: 999; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error   { border-color: var(--red);   color: var(--red); }
+
+  /* ── Scan mode toggle ── */
+  .mode-toggle { display: flex; gap: 0; margin-bottom: 12px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 3px; width: fit-content; }
+  .mode-btn { padding: 6px 14px; border-radius: 4px; border: none; background: none; color: var(--text3); font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .2s; }
+  .mode-btn.active { background: var(--accent); color: #fff; }
+  .mode-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #manualRow { display: none; gap: 8px; align-items: flex-end; margin-top: 10px; flex-wrap: wrap; }
+  #manualRow.visible { display: flex; }
+  .manual-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+  .manual-field label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; }
+  .manual-field input { height: 40px; padding: 0 12px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: var(--mono); font-size: 14px; letter-spacing: 1px; }
+  .manual-field input:focus { outline: none; border-color: var(--accent); }
+  .manual-submit { height: 40px; padding: 0 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .manual-submit:hover { background: var(--accent-light); }
+
+  /* ── Units per box ── */
+  .img-entry { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  .img-units-wrap { display: flex; align-items: center; gap: 4px; width: 72px; }
+  .img-units-wrap label { font-size: 9px; color: var(--text3); white-space: nowrap; }
+  .img-units { width: 72px; height: 26px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-size: 12px; font-weight: 600; text-align: center; padding: 0 4px; }
+  .img-units:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Spinner ── */
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 500px) {
+    .scan-row { flex-wrap: wrap; }
+    #awbInput { font-size: 15px; }
+    .header { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/><rect x="1" y="4" width="22" height="16" rx="2"/></svg>
+      </div>
+      <div>
+        <div class="app-name">Returns Receiving Station</div>
+        <div class="app-sub">Google Drive · Scan · Log · Image</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="liveClock">--:--:--</div>
+      <button id="authBtn" onclick="handleAuth()">
+        <div class="dot" id="authDot"></div>
+        <span id="authLabel">Sign in with Google</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CONFIG BANNER -->
+  <div id="configBanner">
+    <div class="banner-icon">⚙️</div>
+    <div class="banner-text">
+      <strong>One-time setup required.</strong> Enter your Google Client ID and the Drive Folder ID where your PDFs are stored. These are saved in your browser only.
+      <div class="config-fields">
+        <input id="cfgClientId" placeholder="Google OAuth Client ID (ends in .apps.googleusercontent.com)" />
+        <input id="cfgFolderId" placeholder="Google Drive Folder ID (from folder URL)" />
+      </div>
+      <div style="margin-top:8px;">
+        <input id="cfgSheetId" placeholder="Google Sheet ID for logging (optional — leave blank to log locally only)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--mono);width:100%;" />
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text3);">
+        📁 <strong style="color:var(--amber);">Folder ID</strong> is the part after <code style="color:var(--text2);">/folders/</code> in your Drive URL.<br/>
+        🔑 <strong style="color:var(--amber);">Client ID</strong> from Google Cloud Console → APIs & Services → Credentials.
+      </div>
+      <button class="save-config-btn" onclick="saveConfig()">Save & continue</button>
+    </div>
+  </div>
+
+  <!-- SCAN ZONE -->
+  <div class="scan-card" id="scanCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div class="scan-label" style="margin-bottom:0;">Airway bill entry</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modeBarcodeBtn" onclick="setMode('barcode')">
+          <svg viewBox="0 0 24 24"><path d="M2 6V4a2 2 0 012-2h2M18 2h2a2 2 0 012 2v2M22 18v2a2 2 0 01-2 2h-2M6 22H4a2 2 0 01-2-2v-2"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+          Barcode scan
+        </button>
+        <button class="mode-btn" id="modeManualBtn" onclick="setMode('manual')">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Manual entry
+        </button>
+      </div>
+    </div>
+
+    <!-- Barcode row -->
+    <div id="barcodeRow">
+      <div class="scan-row">
+        <div class="scan-icon-wrap">
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:var(--accent-light);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;"><path d="M2 6V4a2 2 0 012-2h2M18 2h2a2 2 0 012 2v2M22 18v2a2 2 0 01-2 2h-2M6 22H4a2 2 0 01-2-2v-2"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+        </div>
+        <input id="awbInput" type="text" placeholder="Scan barcode — auto-submits on scan" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text" />
+        <button class="scan-btn" id="scanBtn" onclick="processAWB()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Look up
+        </button>
+      </div>
+      <div class="scan-hint">Point scanner at barcode — Enter key triggers lookup automatically</div>
+    </div>
+
+    <!-- Manual entry row -->
+    <div id="manualRow">
+      <div class="manual-field">
+        <label>AWB / Tracking number</label>
+        <input id="manualAWB" type="text" placeholder="e.g. 636198200121" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text" />
+      </div>
+      <div class="manual-field" style="max-width:160px;">
+        <label>Reference / PO (optional)</label>
+        <input id="manualRef" type="text" placeholder="e.g. RTN-2024-001" autocomplete="off" />
+      </div>
+      <button class="manual-submit" onclick="processManual()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Look up
+      </button>
+    </div>
+
+    <div class="staff-row">
+      <span class="staff-label">Receiving staff:</span>
+      <button class="staff-btn active" onclick="selectStaff(this,'Staff 1')">Staff 1</button>
+      <button class="staff-btn" onclick="selectStaff(this,'Staff 2')">Staff 2</button>
+      <button class="staff-btn" onclick="selectStaff(this,'Staff 3')">Staff 3</button>
+      <button class="staff-btn" onclick="selectStaff(this,'Staff 4')">Staff 4</button>
+      <input id="staffNameInput" placeholder="Custom name…" oninput="selectStaffCustom(this)" />
+    </div>
+  </div>
+
+  <!-- RESULT PANEL -->
+  <div id="resultPanel">
+    <div class="rp-header">
+      <span class="rp-badge" id="rpBadge"></span>
+      <span class="rp-awb" id="rpAWB"></span>
+      <span class="rp-time" id="rpTime"></span>
+    </div>
+    <div class="rp-body">
+      <!-- PDF col -->
+      <div class="rp-col">
+        <div class="col-label">Matched document</div>
+        <div id="pdfArea"></div>
+      </div>
+      <!-- Image + notes col -->
+      <div class="rp-col">
+        <div class="col-label">Box images · Units · Notes</div>
+        <div class="img-drop" onclick="document.getElementById('imgInput').click()">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <p>Tap to photograph box</p>
+          <small>Timestamp + units recorded per box</small>
+        </div>
+        <input type="file" id="imgInput" accept="image/*" multiple style="display:none" onchange="handleImages(event)" />
+        <div class="img-grid" id="imgGrid"></div>
+        <div class="upload-progress" id="uploadProgress"></div>
+        <textarea class="notes-area" id="notesArea" placeholder="Notes (damage, condition, missing items…)"></textarea>
+        <button class="save-entry-btn" id="saveEntryBtn" onclick="saveEntry()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save to log &amp; Sheet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-header">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Today's receiving log
+      <span id="logCount" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
+    </div>
+    <div class="log-controls">
+      <button class="log-btn" onclick="exportCSV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
+      <button class="log-btn" onclick="clearLog()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">Clear log</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>AWB Number</th>
+          <th>Document matched</th>
+          <th>Scanned at</th>
+          <th>Staff</th>
+          <th>Images</th>
+          <th>Units</th>
+          <th>Notes</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
+
+</div><!-- /.app -->
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG & STATE
+// ─────────────────────────────────────────────
+let CLIENT_ID   = localStorage.getItem('rrs_client_id') || '';
+let FOLDER_ID   = localStorage.getItem('rrs_folder_id') || '';
+let SHEET_ID    = localStorage.getItem('rrs_sheet_id')  || '';
+let accessToken = null;
+let currentStaff = 'Staff 1';
+let currentEntry = null;
+let capturedImages = []; // { dataUrl, timestamp, driveFileId }
+let log = JSON.parse(localStorage.getItem('rrs_log') || '[]');
+
+const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+window.onload = () => {
+  updateClock();
+  setInterval(updateClock, 1000);
+  renderLog();
+
+  if(CLIENT_ID && FOLDER_ID) {
+    document.getElementById('configBanner').classList.add('hidden');
+    document.getElementById('cfgClientId').value = CLIENT_ID;
+    document.getElementById('cfgFolderId').value = FOLDER_ID;
+    document.getElementById('cfgSheetId').value  = SHEET_ID;
+    initGoogleAuth();
+  } else {
+    document.getElementById('cfgClientId').value = CLIENT_ID;
+    document.getElementById('cfgFolderId').value = FOLDER_ID;
+    document.getElementById('cfgSheetId').value  = SHEET_ID;
+  }
+
+  document.getElementById('awbInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter') processAWB();
+  });
+  document.getElementById('manualAWB').addEventListener('keydown', e => {
+    if(e.key === 'Enter') processManual();
+  });
+};
+
+// ─────────────────────────────────────────────
+// SCAN MODE TOGGLE
+// ─────────────────────────────────────────────
+function setMode(mode) {
+  const isScan = mode === 'barcode';
+  document.getElementById('modeBarcodeBtn').classList.toggle('active', isScan);
+  document.getElementById('modeManualBtn').classList.toggle('active', !isScan);
+  document.getElementById('barcodeRow').style.display = isScan ? '' : 'none';
+  document.getElementById('manualRow').classList.toggle('visible', !isScan);
+  setTimeout(() => {
+    if(isScan) document.getElementById('awbInput').focus();
+    else document.getElementById('manualAWB').focus();
+  }, 50);
+}
+
+function processManual() {
+  const awb = document.getElementById('manualAWB').value.trim();
+  const ref  = document.getElementById('manualRef').value.trim();
+  if(!awb) { showToast('Enter an AWB number first', 'error'); return; }
+  // Combine AWB + optional ref into the search field and process
+  document.getElementById('awbInput').value = awb;
+  processAWB(ref || null);
+  document.getElementById('manualAWB').value = '';
+  document.getElementById('manualRef').value = '';
+}
+
+function updateClock() {
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('liveClock').textContent =
+    `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}  ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// ─────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────
+function saveConfig() {
+  CLIENT_ID = document.getElementById('cfgClientId').value.trim();
+  FOLDER_ID = document.getElementById('cfgFolderId').value.trim();
+  SHEET_ID  = document.getElementById('cfgSheetId').value.trim();
+  if(!CLIENT_ID || !FOLDER_ID) { showToast('Please enter both Client ID and Folder ID', 'error'); return; }
+  localStorage.setItem('rrs_client_id', CLIENT_ID);
+  localStorage.setItem('rrs_folder_id', FOLDER_ID);
+  localStorage.setItem('rrs_sheet_id',  SHEET_ID);
+  document.getElementById('configBanner').classList.add('hidden');
+  showToast('Config saved — sign in with Google to continue', 'success');
+  initGoogleAuth();
+}
+
+// ─────────────────────────────────────────────
+// GOOGLE AUTH (GIS token model)
+// ─────────────────────────────────────────────
+let tokenClient;
+
+function initGoogleAuth() {
+  if(!CLIENT_ID) return;
+  // Wait for GIS to load
+  const check = setInterval(() => {
+    if(window.google && google.accounts && google.accounts.oauth2) {
+      clearInterval(check);
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        ux_mode: 'popup',
+        callback: (resp) => {
+          if(resp.error) { showToast('Auth error: ' + resp.error, 'error'); return; }
+          accessToken = resp.access_token;
+          setSignedIn(true);
+          showToast('Signed in — ready to scan', 'success');
+        }
+      });
+    }
+  }, 200);
+}
+
+function handleAuth() {
+  if(accessToken) {
+    // Sign out
+    google.accounts.oauth2.revoke(accessToken, () => {});
+    accessToken = null;
+    setSignedIn(false);
+    showToast('Signed out');
+    return;
+  }
+  if(!CLIENT_ID) { showToast('Save config first', 'error'); return; }
+  if(!tokenClient) { initGoogleAuth(); setTimeout(() => tokenClient && tokenClient.requestAccessToken(), 800); return; }
+  tokenClient.requestAccessToken();
+}
+
+function setSignedIn(on) {
+  document.getElementById('authDot').className = 'dot' + (on ? ' on' : '');
+  document.getElementById('authLabel').textContent = on ? 'Signed in (tap to sign out)' : 'Sign in with Google';
+  document.getElementById('authBtn').className = 'authBtn' + (on ? ' signed-in' : '');
+}
+
+// ─────────────────────────────────────────────
+// STAFF
+// ─────────────────────────────────────────────
+function selectStaff(btn, name) {
+  document.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentStaff = name;
+  document.getElementById('staffNameInput').value = '';
+}
+function selectStaffCustom(inp) {
+  document.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('active'));
+  currentStaff = inp.value || 'Unknown';
+}
+
+// ─────────────────────────────────────────────
+// PROCESS AWB
+// ─────────────────────────────────────────────
+async function processAWB(manualRef) {
+  const raw = document.getElementById('awbInput').value.trim();
+  if(!raw) return;
+  if(!accessToken) { showToast('Sign in with Google first', 'error'); return; }
+
+  const btn = document.getElementById('scanBtn');
+  btn.innerHTML = '<div class="spin"></div> Searching…';
+  btn.disabled = true;
+
+  // Flash scan card
+  const card = document.getElementById('scanCard');
+  card.classList.add('flash');
+  setTimeout(() => card.classList.remove('flash'), 600);
+
+  const ts = nowStr();
+  capturedImages = [];
+  document.getElementById('imgGrid').innerHTML = '';
+  document.getElementById('notesArea').value = '';
+  document.getElementById('uploadProgress').textContent = '';
+
+  try {
+    const files = await searchDrive(raw);
+    showResult(raw, ts, files, manualRef || null);
+  } catch(e) {
+    showToast('Drive search failed: ' + e.message, 'error');
+  }
+
+  btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Look up`;
+  btn.disabled = false;
+  document.getElementById('awbInput').value = '';
+  document.getElementById('awbInput').focus();
+}
+
+// ─────────────────────────────────────────────
+// GOOGLE DRIVE SEARCH
+// ─────────────────────────────────────────────
+async function searchDrive(awb) {
+  // Search by filename containing AWB in the configured folder
+  const q = encodeURIComponent(
+    `'${FOLDER_ID}' in parents and name contains '${awb}' and mimeType='application/pdf' and trashed=false`
+  );
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,webViewLink,modifiedTime)&pageSize=10`;
+  const res = await gFetch(url);
+  if(!res.ok) { const e = await res.json(); throw new Error(e.error?.message || res.status); }
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function gFetch(url, opts={}) {
+  return fetch(url, { ...opts, headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', ...(opts.headers||{}) } });
+}
+
+// ─────────────────────────────────────────────
+// SHOW RESULT
+// ─────────────────────────────────────────────
+function showResult(awb, ts, files, manualRef) {
+  const panel = document.getElementById('resultPanel');
+  panel.classList.add('visible');
+  document.getElementById('rpAWB').textContent = awb + (manualRef ? ` · ${manualRef}` : '');
+  document.getElementById('rpTime').textContent = ts;
+
+  const badge = document.getElementById('rpBadge');
+  const pdfArea = document.getElementById('pdfArea');
+
+  currentEntry = { awb, ref: manualRef||'', ts, staff: currentStaff, files, images: 0, totalUnits: 0, notes: '', status: files.length ? 'Found' : 'Not found', saved: false };
+
+  if(files.length) {
+    badge.className = 'rp-badge found';
+    badge.textContent = `✓ ${files.length} file${files.length>1?'s':''} found`;
+
+    pdfArea.innerHTML = files.map((f,i) => `
+      <div class="pdf-row">
+        <div class="pdf-icon">📄</div>
+        <div style="flex:1;min-width:0;">
+          <div class="pdf-name">${f.name}</div>
+          <div class="pdf-meta">PDF · ${f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString() : ''}</div>
+        </div>
+      </div>
+    `).join('') + `
+      <button class="print-btn" onclick="openPDF()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Open &amp; Print PDF
+      </button>
+    `;
+    // Auto-open first PDF
+    setTimeout(() => openPDF(), 400);
+
+  } else {
+    badge.className = 'rp-badge notfound';
+    badge.textContent = '✗ No match found';
+    pdfArea.innerHTML = `<div class="notfound-msg">No PDF found in Drive folder containing <strong>"${awb}"</strong>.<br/>Check the filename format or verify the AWB is correct.</div>`;
+  }
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function openPDF() {
+  if(!currentEntry || !currentEntry.files.length) return;
+  const f = currentEntry.files[0];
+  // Open Google Drive viewer — triggers browser print dialog
+  const printUrl = `https://drive.google.com/file/d/${f.id}/view`;
+  window.open(printUrl, '_blank');
+  showToast('PDF opened — use Ctrl+P / Cmd+P to print');
+}
+
+// ─────────────────────────────────────────────
+// IMAGE CAPTURE
+// ─────────────────────────────────────────────
+function handleImages(e) {
+  const files = Array.from(e.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const ts = nowStr();
+      const entry = { dataUrl: ev.target.result, timestamp: ts, driveFileId: null, file };
+      capturedImages.push(entry);
+      renderImageThumb(entry, capturedImages.length - 1);
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+
+function renderImageThumb(entry, idx) {
+  const grid = document.getElementById('imgGrid');
+  const wrap = document.createElement('div');
+  wrap.className = 'img-entry';
+  wrap.id = `entry-${idx}`;
+  const shortTs = entry.timestamp.slice(-8); // HH:MM:SS
+  wrap.innerHTML = `
+    <div class="img-thumb" style="position:relative;">
+      <img src="${entry.dataUrl}" />
+      <div class="img-ts-badge">${shortTs}</div>
+      <div class="img-del" onclick="removeImage(${idx})">✕</div>
+    </div>
+    <input class="img-units" type="number" min="0" step="1" placeholder="0" title="Units in this box"
+      oninput="updateUnits(${idx}, this.value)" />
+    <div style="font-size:9px;color:var(--text3);">units</div>
+  `;
+  grid.appendChild(wrap);
+}
+
+function updateUnits(idx, val) {
+  if(capturedImages[idx]) capturedImages[idx].units = parseInt(val)||0;
+}
+
+function removeImage(idx) {
+  capturedImages[idx] = null;
+  const el = document.getElementById(`entry-${idx}`);
+  if(el) el.remove();
+}
+
+// ─────────────────────────────────────────────
+// SAVE ENTRY
+// ─────────────────────────────────────────────
+async function saveEntry() {
+  if(!currentEntry) return;
+  const saveBtn = document.getElementById('saveEntryBtn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<div class="spin"></div> Saving…';
+
+  currentEntry.notes = document.getElementById('notesArea').value;
+  const imgs = capturedImages.filter(Boolean);
+  currentEntry.totalUnits = imgs.reduce((sum, img) => sum + (img.units||0), 0);
+
+  // Upload images to Drive subfolder
+  if(accessToken && imgs.length) {
+    const prog = document.getElementById('uploadProgress');
+    try {
+      // Create subfolder named by AWB if needed
+      const subFolderId = await ensureSubFolder(currentEntry.awb);
+      let uploaded = 0;
+      for(const img of imgs) {
+        prog.textContent = `Uploading image ${++uploaded}/${imgs.length}…`;
+        await uploadImageToDrive(img, subFolderId);
+      }
+      prog.textContent = `${imgs.length} image${imgs.length>1?'s':''} saved to Drive ✓`;
+      currentEntry.images = imgs.length;
+    } catch(e) {
+      showToast('Image upload failed: ' + e.message, 'error');
+    }
+  } else {
+    currentEntry.images = imgs.length;
+  }
+
+  // Append to Google Sheet
+  if(accessToken && SHEET_ID) {
+    try {
+      await appendToSheet(currentEntry);
+    } catch(e) {
+      showToast('Sheet append failed: ' + e.message, 'error');
+    }
+  }
+
+  currentEntry.saved = true;
+  log.unshift({ ...currentEntry });
+  localStorage.setItem('rrs_log', JSON.stringify(log.slice(0, 500)));
+  renderLog();
+
+  saveBtn.innerHTML = '✓ Saved';
+  saveBtn.style.background = 'var(--green)';
+  setTimeout(() => {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save to log & Sheet`;
+    saveBtn.style.background = '';
+  }, 2000);
+
+  showToast('Entry saved', 'success');
+}
+
+// ─────────────────────────────────────────────
+// DRIVE: CREATE SUBFOLDER PER AWB
+// ─────────────────────────────────────────────
+async function ensureSubFolder(awb) {
+  // Check if folder already exists
+  const q = encodeURIComponent(`'${FOLDER_ID}' in parents and name='${awb}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const res = await gFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  if(data.files && data.files.length) return data.files[0].id;
+
+  // Create it
+  const cr = await gFetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    body: JSON.stringify({ name: awb, mimeType: 'application/vnd.google-apps.folder', parents: [FOLDER_ID] })
+  });
+  const folder = await cr.json();
+  return folder.id;
+}
+
+// ─────────────────────────────────────────────
+// DRIVE: UPLOAD IMAGE (multipart)
+// ─────────────────────────────────────────────
+async function uploadImageToDrive(imgEntry, folderId) {
+  const ts = imgEntry.timestamp.replace(/[/:]/g, '-').replace(/\s/g, '_');
+  const fileName = `${currentEntry.awb}_${ts}.jpg`;
+
+  // Convert dataUrl to blob
+  const blob = await (await fetch(imgEntry.dataUrl)).blob();
+
+  const meta = JSON.stringify({ name: fileName, parents: [folderId] });
+  const form = new FormData();
+  form.append('metadata', new Blob([meta], { type: 'application/json' }));
+  form.append('file', blob);
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: form
+  });
+  return res.json();
+}
+
+// ─────────────────────────────────────────────
+// SHEETS: APPEND ROW
+// ─────────────────────────────────────────────
+async function appendToSheet(entry) {
+  const row = [[
+    entry.awb,
+    entry.ref || '',
+    entry.files.length ? entry.files[0].name : 'Not found',
+    entry.ts,
+    entry.staff,
+    entry.images,
+    entry.totalUnits || 0,
+    entry.notes,
+    entry.status
+  ]];
+  await gFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`,
+    { method: 'POST', body: JSON.stringify({ values: row }) }
+  );
+}
+
+// ─────────────────────────────────────────────
+// LOG RENDER
+// ─────────────────────────────────────────────
+function renderLog() {
+  const tbody = document.getElementById('logBody');
+  document.getElementById('logCount').textContent = log.length ? `(${log.length})` : '';
+
+  if(!log.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No entries yet today — scan your first AWB above</td></tr>';
+    return;
+  }
+  tbody.innerHTML = log.map(e => `
+    <tr>
+      <td class="td-mono">${e.awb}${e.ref ? `<div style="font-size:10px;color:var(--text3);">${e.ref}</div>` : ''}</td>
+      <td class="td-file" title="${e.files&&e.files[0]?e.files[0].name:''}">${e.files&&e.files[0] ? e.files[0].name : '<span style="color:var(--red)">Not found</span>'}</td>
+      <td class="td-mono" style="white-space:nowrap;">${e.ts}</td>
+      <td>${e.staff||'—'}</td>
+      <td><div class="td-imgs">${e.images ? `<span class="chip chip-green">📷 ${e.images}</span>` : '<span class="chip chip-gray">—</span>'}</div></td>
+      <td style="text-align:center;">${e.totalUnits ? `<span class="chip chip-green">${e.totalUnits}</span>` : '<span class="chip chip-gray">—</span>'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3);">${e.notes||'—'}</td>
+      <td>${e.files&&e.files.length ? '<span class="chip chip-green">Found</span>' : '<span class="chip chip-red">Missing</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+// ─────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────
+function exportCSV() {
+  if(!log.length) { showToast('No entries to export', 'error'); return; }
+  const headers = ['AWB','Reference','Document','Scanned At','Staff','Images','Total Units','Notes','Status'];
+  const rows = log.map(e => [
+    e.awb,
+    e.ref||'',
+    e.files&&e.files[0] ? e.files[0].name : 'Not found',
+    e.ts, e.staff||'', e.images||0, e.totalUnits||0, (e.notes||'').replace(/"/g,"'"), e.status||''
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0,10);
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `receiving-log-${today}.csv`;
+  a.click();
+  showToast('CSV downloaded');
+}
+
+function clearLog() {
+  if(!confirm('Clear today\'s local log? (Google Sheet records are kept.)')) return;
+  log = [];
+  localStorage.removeItem('rrs_log');
+  renderLog();
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function nowStr() {
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>
